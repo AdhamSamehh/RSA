@@ -21,7 +21,6 @@ def generate_rsa_keys(bit_length):
         runtime = end_time - start_time
         return public_key, private_key, runtime
 
-
 def generate_prime_number(bit_length):
     while True:
         candidate = random.getrandbits(bit_length)
@@ -63,7 +62,12 @@ def choose_public_exponent(phi_n):
         e = random.randint(2, phi_n - 1)
     return e
 
-
+def modular_inverse(e, phi_n):
+    gcd, x, _ = extended_euclidean_algorithm(e, phi_n)
+    if gcd == 1:
+        return x % phi_n
+    else:
+        raise ValueError("No modular inverse exists")
 
 def extended_euclidean_algorithm(a, b):
     if b == 0:
@@ -72,13 +76,6 @@ def extended_euclidean_algorithm(a, b):
     x = y1
     y = x1 - (a // b) * y1
     return gcd, x, y
-
-def modular_inverse(e, phi_n):
-    gcd, x, _ = extended_euclidean_algorithm(e, phi_n)
-    if gcd == 1:
-        return x % phi_n
-    else:
-        raise ValueError("No modular inverse exists")
 
 def factor_modulus(N):
     for i in range(2, int(math.sqrt(N)) + 1):
@@ -108,12 +105,30 @@ def crack_private_key_brute_force(public_key):
     # Calculate the modular inverse of e modulo phi
     d = modular_inverse(e, phi)
 
+    private_key = (d, n)
+    
+    # Decrypt a sample message to verify if we have found the correct private key
+    sample_message = 123456789  # You can choose any sample message here
+    decrypted_message = decrypt(encrypt(sample_message, public_key), private_key)
+    
+    if decrypted_message != sample_message:
+        print("Failed to find the correct private key.")
+        return None, 0
+
     end_time = time.time()  # Record End Time
     runtime = end_time - start_time  # Calculate Runtime
 
-    return (n, d), runtime
+    return private_key, runtime
 
+def encrypt(message, public_key):
+    # Encrypts a Message Using the RSA Encryption Algorithm 
+    n, e = public_key
+    return pow(message, e, n)
 
+def decrypt(ciphertext, private_key):
+    # Decrypts a Ciphertext Using the RSA Decryption Algorithm 
+    n, d = private_key
+    return pow(ciphertext, d, n)
 
 def main():
     print("Welcome to RSA Key Generator and Private Key Cracker\n")
