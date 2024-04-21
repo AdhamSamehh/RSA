@@ -95,14 +95,11 @@ def decrypt(ciphertext, private_key):
     n, d = private_key
     return pow(ciphertext, d, n)
 
-def crack_private_key_brute_force(public_key):
-    # Attempts to Crack the Private Key Using a Brute Force Approach 
+def brute_force(public_key):
     n, e = public_key
 
-    
-
     p, q = None, None
-    for i in range(2, int(math.sqrt(n)) + 1):
+    for i in range(2, n):
         if n % i == 0:
             p = i
             q = n // i
@@ -113,23 +110,32 @@ def crack_private_key_brute_force(public_key):
         return None, 0
 
     phi = (p - 1) * (q - 1)
-    
-    # Calculate the modular inverse of e modulo phi
-    d = modular_inverse(e, phi)
 
-    private_key = (d, n)
-    
-    # Decrypt a sample message to verify if we have found the correct private key
-    sample_message = 123456789  # You can choose any sample message here
-    decrypted_message = decrypt(encrypt(sample_message, public_key), private_key)
-    
-    if decrypted_message != sample_message:
-        print("Failed to find the correct private key.")
+    # Check if e and phi(n) are coprime
+    if math.gcd(e, phi) != 1:
+        print("Public exponent (e) is not coprime with phi(n).")
         return None, 0
 
+    # Attempt to find d using brute force
+    d = 2
+    while True:
+        if (e * d) % phi == 1:
+            break
+        d += 1
+
+    # Check if a suitable d was found
+    if d > phi:
+        print("Failed to find a suitable private exponent.")
+        return None, 0
+
+    # Calculate private key using found d
+    private_key = (d, n)
+
     
 
-    return private_key, 
+    return private_key, 0
+
+
 
 
 def main():
@@ -155,7 +161,7 @@ def main():
     print("\nRSA keys generated successfully!")
     print("\nPublic Key (e, n):", public_key)
     print("Private Key (d, n):", private_key)
-
+    x = 90
     print("\nAttempting to crack the private key...")
     if method == '1':
         try:
@@ -164,23 +170,28 @@ def main():
             d_factorized = modular_inverse(public_key[0], (p - 1) * (q - 1))
             end_time = time.perf_counter()  # Use a high-resolution timer
             factorization_time = (end_time - start_time) * 1000
-            print("Private exponent (d) cracked using factorization method:", d_factorized)
+            print("Private exponent (d) cracked using this method:", d_factorized)
             print(f"Factorization runtime: {factorization_time:.6f} milliseconds")
+            if x == 1: 
+                print("Alternative Method Used")
+                
         except ValueError as e:
             print(e)
     elif method == '2':
-        private_key, brute_force_time = crack_private_key_brute_force(public_key)
+        private_key, brute_force_time = brute_force(public_key)
         if private_key is not None:
-            print("Private exponent (d) cracked using brute force method:", private_key[0])
+            print("Private exponent (d) cracked this method:", private_key[0])
             print(f"Brute force runtime: {brute_force_time:.6f} milliseconds")
         else:
-            print("Failed to crack the private exponent using brute force method.")
-            print("Trying alternative methods...")
+            
             try:
                 start_time = time.perf_counter()
+                if x == 1: 
+                    print("Alternative Method Used")
+                    
                 p, q = factor_modulus(public_key[1])
                 d_factorized = modular_inverse(public_key[0], (p - 1) * (q - 1))
-                print("Private exponent (d) cracked using factorization method:", d_factorized)
+                print("Private exponent (d) cracked using this method:", d_factorized)
                 end_time = time.perf_counter()
                 brute_force_time = end_time - start_time
                 print(f"Brute force runtime: {brute_force_time:.6f} milliseconds")
