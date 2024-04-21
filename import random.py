@@ -1,125 +1,192 @@
 import random
+import math
+import time
 
-
-
-        
-def is_prime(n, k=8):
-    """
-    Miller-Rabin primality test.
-    Returns True if n is probably prime, False if it's definitely composite.
-    k is the number of tests to perform.
-    """
-    # Basic checks
-    if n <= 1:  # 1 and below are not prime
-        return False
-    if n <= 3:  # 2 and 3 are prime
-        return True
-    if n % 2 == 0:  # Even numbers greater than 2 are not prime
-        return False
-
-    # Write n as 2^r * d + 1
-    r, m = 0, n - 1
-    while m % 2 == 0:  # Get r and d such that n - 1 = 2^r * d
-        r += 1
-        m //= 2
-
-    # Witness loop
-    for _ in range(k):  # Repeat the test k times
-        a = random.randint(2, n - 2)  # Choose a random base
-        x = pow(a, m, n)  # Compute a^d mod n
-        if x == 1 or x == n - 1:
-            continue
-        for _ in range(r - 1):
-            x = pow(x, 2, n)  # Compute x^2 mod n
-            if x == n - 1:
-                break
-        else:
-            return False  # Definitely composite if conditions fail
-
-    return True  # Probably prime if all tests passed
-
-def generate_random_prime(bits):
-    """
-    Generate a random prime number with 'bits' number of bits.
-    """
-    while True:
-        hopefully_prime = random.randint(2**(bits - 1), 2**bits - 1)  # Generate a random num
-        if is_prime(hopefully_prime):  # Check if num is prime
-            return hopefully_prime  # Return num candidate
-
-def prime_factorization(n):
-    i = 2
-    factors = {}
-    while i * i <= n:
-        while (n % i) == 0:
-            if i in factors:
-                factors[i] += 1
-            else:
-                factors[i] = 1
-            n //= i
-        i += 1
-    if n > 1:
-        factors[n] = 1
-    return factors
-
-def gcd(a, b):
-    """
-    Returns the greatest common divisor of two numbers a and b.
-    """
-    # Get the prime factorization of both numbers
-    factors_of_a = prime_factorization(a)
-    factors_of_b = prime_factorization(b)
+def generate_rsa_keys(bit_length):
+    p = generate_prime_number(bit_length // 2)
+    q = generate_prime_number(bit_length // 2)
     
-    # Initialize gcd to 1
-    gcd_value = 1
-    
-    # Iterate through common prime factors and multiply them
-    for factor in factors_of_a.keys():
-        if factor in factors_of_b:
-            gcd_value *= factor ** min(factors_of_a [factor], factors_of_b [factor])
-    
-    return gcd_value
+    # Ensure distinct prime numbers
+    while p == q:
+        q = generate_prime_number(bit_length // 2)
 
-def encrypt(text, public_key):
-    # Encrypts any text Using the RSA Encryption Algorithm 
-    n, e = public_key
-    return pow(text, e, n)
-
-def decrypt(text, private_key):
-    # Decrypts any text Using the RSA Decryption Algorithm 
-    n, d = private_key
-    return pow(text, d, n)
-
-def generate_rsa_keys(bits):
-    """
-    Generates RSA public and private keys.
-    """
-    # Generate two random prime numbers
-    p = generate_random_prime(bits // 2)
-    q = generate_random_prime(bits // 2)
-    
-    # Compute modulus n and Euler's totient function phi
     n = p * q
-    phi = (p - 1) * (q - 1)
+    phi_n = (p - 1) * (q - 1)
+
+    if phi_n <= 2:
+        # If phi_n is not greater than 2, regenerate prime numbers
+        return generate_rsa_keys(bit_length)
+
+    start_time = time.time()
+    e = choose_public_exponent(phi_n)
+    d = modular_inverse(e, phi_n)
     
-    # Choose encryption exponent e
-    e = random.randint(2, phi - 1)
-    while gcd(e, phi) != 1:
-        e = random.randint(2, phi - 1)
-    
-    # Compute decryption exponent d
-    d = pow(e, -1, phi)
-    
-    # Return public and private keys
-    public_key = (n, e)
-    private_key = (n, d)
-    
+
+    public_key = (e, n)
+    private_key = (d, n)
     return public_key, private_key
 
 
+def generate_prime_number(bit_length):
+    while True:
+        candidate = random.getrandbits(bit_length)
+        if is_prime(candidate):
+            return candidate
 
-# Example usage:
-bits = int(input("Please enter 8 or 16: "))  # Adjust the number of bits as needed
-public_key, private_key = generate_rsa_keys(bits)  # Generate RSA keys
-print("Public key:", public_key)  # Print public key
-print("Private key:", private_key)  # Print private key
+def is_prime(n, k=5):
+    if n <= 1:
+        return False
+    if n <= 3:
+        return True
+    if n % 2 == 0:
+        return False
+    r = 0
+    d = n - 1
+    while d % 2 == 0:
+        d //= 2
+        r += 1
+    def miller_rabin_test(a):
+        x = pow(a, d, n)
+        if x == 1 or x == n - 1:
+            return True
+        for _ in range(r - 1):
+            x = pow(x, 2, n)
+            if x == n - 1:
+                return True
+        return False
+    for _ in range(k):
+        a = random.randrange(2, n - 1)
+        if not miller_rabin_test(a):
+            return False
+    return True
+
+def choose_public_exponent(phi_n):
+    e = random.randint(2, phi_n - 1)
+    while math.gcd(e, phi_n) != 1:
+        e = random.randint(2, phi_n - 1)
+    return e
+
+def modular_inverse(e, phi_n):
+    gcd, x, _ = extended_euclidean_algorithm(e, phi_n)
+    if gcd == 1:
+        return x % phi_n
+    else:
+        raise ValueError("No modular inverse exists")
+
+def extended_euclidean_algorithm(a, b):
+    if b == 0:
+        return a, 1, 0
+    gcd, x1, y1 = extended_euclidean_algorithm(b, a % b)
+    x = y1
+    y = x1 - (a // b) * y1
+    return gcd, x, y
+
+def factor_modulus(N):
+    for i in range(2, int(math.sqrt(N)) + 1):
+        if N % i == 0:
+            return i, N // i
+    raise ValueError("Modulus cannot be factored into prime numbers")
+
+def encrypt(message, public_key):
+    n, e = public_key
+    return pow(message, e, n)
+
+def decrypt(ciphertext, private_key):
+    n, d = private_key
+    return pow(ciphertext, d, n)
+
+def crack_private_key_brute_force(public_key):
+    # Attempts to Crack the Private Key Using a Brute Force Approach 
+    n, e = public_key
+
+    
+
+    p, q = None, None
+    for i in range(2, int(math.sqrt(n)) + 1):
+        if n % i == 0:
+            p = i
+            q = n // i
+            break
+
+    if p is None or q is None:
+        print("Failed to find suitable prime factors for modulus.")
+        return None, 0
+
+    phi = (p - 1) * (q - 1)
+    
+    # Calculate the modular inverse of e modulo phi
+    d = modular_inverse(e, phi)
+
+    private_key = (d, n)
+    
+    # Decrypt a sample message to verify if we have found the correct private key
+    sample_message = 123456789  # You can choose any sample message here
+    decrypted_message = decrypt(encrypt(sample_message, public_key), private_key)
+    
+    if decrypted_message != sample_message:
+        print("Failed to find the correct private key.")
+        return None, 0
+
+    
+
+    return private_key, 
+
+
+def main():
+    print("Welcome to RSA Key Generator and Private Key Cracker\n")
+    bit_length = 0
+    while bit_length not in [8, 16]:
+        try:
+            bit_length = int(input("Enter the desired bit length for RSA keys (8 or 16): "))
+            if bit_length not in [8, 16]:
+                raise ValueError
+        except ValueError:
+            print("Invalid input. Please enter either 8 or 16.")
+
+    method = None
+    while method not in ['1', '2']:
+        method = input("\nChoose the method to find the private exponent:\n"
+                       "1. Factorization\n"
+                       "2. Brute force\n"
+                       "Enter the corresponding number: ")
+
+    print("\nGenerating RSA keys...")
+    public_key, private_key = generate_rsa_keys(bit_length)
+    print("\nRSA keys generated successfully!")
+    print("\nPublic Key (e, n):", public_key)
+    print("Private Key (d, n):", private_key)
+
+    print("\nAttempting to crack the private key...")
+    if method == '1':
+        try:
+            start_time = time.perf_counter()  # Use a high-resolution timer
+            p, q = factor_modulus(public_key[1])
+            d_factorized = modular_inverse(public_key[0], (p - 1) * (q - 1))
+            end_time = time.perf_counter()  # Use a high-resolution timer
+            factorization_time = (end_time - start_time) * 1000
+            print("Private exponent (d) cracked using factorization method:", d_factorized)
+            print(f"Factorization runtime: {factorization_time:.6f} milliseconds")
+        except ValueError as e:
+            print(e)
+    elif method == '2':
+        private_key, brute_force_time = crack_private_key_brute_force(public_key)
+        if private_key is not None:
+            print("Private exponent (d) cracked using brute force method:", private_key[0])
+            print(f"Brute force runtime: {brute_force_time:.6f} milliseconds")
+        else:
+            print("Failed to crack the private exponent using brute force method.")
+            print("Trying alternative methods...")
+            try:
+                start_time = time.perf_counter()
+                p, q = factor_modulus(public_key[1])
+                d_factorized = modular_inverse(public_key[0], (p - 1) * (q - 1))
+                print("Private exponent (d) cracked using factorization method:", d_factorized)
+                end_time = time.perf_counter()
+                brute_force_time = end_time - start_time
+                print(f"Brute force runtime: {brute_force_time:.6f} milliseconds")
+            except ValueError as e:
+                print("Failed to crack the private exponent using factorization method.")
+                print("This can happen when the RSA key length is too large.")
+
+if __name__ == "__main__":
+    main()
