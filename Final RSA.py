@@ -3,23 +3,22 @@ import math
 import time
 
 def generate_rsa_keys(bit_length):
-    while True:
-        start_time = time.time()
-        p = generate_prime_number(bit_length // 2)
-        q = generate_prime_number(bit_length // 2)
-        n = p * q
-        phi_n = (p - 1) * (q - 1)
-        
-        if phi_n <= 2:
-            continue  # Restart the loop to regenerate primes
-        
-        e = choose_public_exponent(phi_n)
-        d = modular_inverse(e, phi_n)
-        public_key = (e, n)
-        private_key = (d, n)
-        end_time = time.time()
-        runtime = end_time - start_time
-        return public_key, private_key, runtime
+    p = generate_prime_number(bit_length // 2)
+    q = generate_prime_number(bit_length // 2)
+    n = p * q
+    phi_n = (p - 1) * (q - 1)
+
+    if phi_n <= 2:
+        raise ValueError("phi_n must be greater than 2 to choose a public exponent.")
+
+    start_time = time.time()
+    e = choose_public_exponent(phi_n)
+    d = modular_inverse(e, phi_n)
+    end_time = time.time()
+
+    public_key = (e, n)
+    private_key = (d, n)
+    return public_key, private_key, (end_time - start_time) * 1000
 
 def generate_prime_number(bit_length):
     while True:
@@ -55,8 +54,6 @@ def is_prime(n, k=5):
     return True
 
 def choose_public_exponent(phi_n):
-    if phi_n <= 2:
-        raise ValueError("phi_n must be greater than 2 to choose a public exponent.")
     e = random.randint(2, phi_n - 1)
     while math.gcd(e, phi_n) != 1:
         e = random.randint(2, phi_n - 1)
@@ -84,10 +81,9 @@ def factor_modulus(N):
     raise ValueError("Modulus cannot be factored into prime numbers")
 
 def crack_private_key_brute_force(public_key):
-    # Attempts to Crack the Private Key Using a Brute Force Approach 
     n, e = public_key
 
-    start_time = time.time()  # Record Start Time
+    start_time = time.time()
 
     p, q = None, None
     for i in range(2, int(math.sqrt(n)) + 1):
@@ -101,32 +97,28 @@ def crack_private_key_brute_force(public_key):
         return None, 0
 
     phi = (p - 1) * (q - 1)
-    
-    # Calculate the modular inverse of e modulo phi
+
     d = modular_inverse(e, phi)
 
     private_key = (d, n)
-    
-    # Decrypt a sample message to verify if we have found the correct private key
-    sample_message = 123456789  # You can choose any sample message here
+
+    sample_message = 123456789
     decrypted_message = decrypt(encrypt(sample_message, public_key), private_key)
-    
+
     if decrypted_message != sample_message:
         print("Failed to find the correct private key.")
         return None, 0
 
-    end_time = time.time()  # Record End Time
-    runtime = end_time - start_time  # Calculate Runtime
+    end_time = time.time()
+    runtime = (end_time - start_time) * 1000
 
     return private_key, runtime
 
 def encrypt(message, public_key):
-    # Encrypts a Message Using the RSA Encryption Algorithm 
     n, e = public_key
     return pow(message, e, n)
 
 def decrypt(ciphertext, private_key):
-    # Decrypts a Ciphertext Using the RSA Decryption Algorithm 
     n, d = private_key
     return pow(ciphertext, d, n)
 
@@ -153,25 +145,25 @@ def main():
     print("\nRSA keys generated successfully!")
     print("\nPublic Key (e, n):", public_key)
     print("Private Key (d, n):", private_key)
-    print(f"Key generation runtime: {generation_time:.6f} seconds")
+    print(f"Key generation runtime: {generation_time:.6f} milliseconds")
 
     print("\nAttempting to crack the private key...")
     if method == '1':
         try:
+            start_time = time.perf_counter()  # Use a high-resolution timer
             p, q = factor_modulus(public_key[1])
-            start_time = time.time()
             d_factorized = modular_inverse(public_key[0], (p - 1) * (q - 1))
-            end_time = time.time()
-            factorization_time = end_time - start_time
+            end_time = time.perf_counter()  # Use a high-resolution timer
+            factorization_time = (end_time - start_time) * 1000
             print("Private exponent (d) cracked using factorization method:", d_factorized)
-            print(f"Factorization runtime: {factorization_time:.6f} seconds")
+            print(f"Factorization runtime: {factorization_time:.6f} milliseconds")
         except ValueError as e:
             print(e)
     elif method == '2':
         d_brute_force, brute_force_time = crack_private_key_brute_force(public_key)
         if d_brute_force is not None:
             print("Private exponent (d) cracked using brute force method:", d_brute_force)
-            print(f"Brute force runtime: {brute_force_time:.6f} seconds")
+            print(f"Brute force runtime: {brute_force_time:.6f} milliseconds")
         else:
             print("Failed to crack the private exponent using brute force method.")
             print("Trying alternative methods...")
